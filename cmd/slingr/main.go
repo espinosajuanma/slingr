@@ -15,6 +15,8 @@ import (
 	"github.com/espinosajuanma/slingr/internal/terminal"
 )
 
+var version = "dev"
+
 func main() {
 	name := os.Getenv("EXE")
 	if name == "" {
@@ -25,15 +27,18 @@ func main() {
 	}
 	completionPoint, _ := strconv.Atoi(os.Getenv("COMP_POINT"))
 
-	store := config.NewFileStore(config.PathFor(
+	configPath := config.PathFor(
 		name,
 		os.Getenv("HOME"),
 		os.Getenv("XDG_CONFIG_HOME"),
 		os.Getenv("CONFIG_DIR"),
-	))
+	)
+	store := config.NewFileStore(configPath)
 	apiClient := api.NewClient(&http.Client{Timeout: 60 * time.Second}, os.Getenv("SLINGR_API_URL"))
 	application, err := cli.New(cli.Options{
 		Name:            name,
+		Version:         version,
+		ConfigPath:      configPath,
 		Store:           store,
 		API:             apiClient,
 		Input:           os.Stdin,

@@ -23,6 +23,17 @@ var queryCmd = &Command{
 	Handler:     (*App).query,
 }
 
+var aggregateCmd = &Command{
+	Name:        "aggregate",
+	Summary:     "run an aggregate query against an entity",
+	Synopsis:    "ENTITY JSON_OPERATIONS",
+	Description: "Sends an ordered JSON array of aggregation operations to the entity aggregate endpoint. Each array element is one operation in the query chain.",
+	Arguments:   []string{"ENTITY: entity name.", "JSON_OPERATIONS: JSON array containing the ordered aggregation operations."},
+	Examples:    []string{`aggregate contacts '[{"project":"company,numberOfSkills"},{"group":{"by":"company","totalSkills":"sum(numberOfSkills)"}}]'`},
+	Endpoints:   []string{"PUT /data/{entityName}/aggregate"},
+	Handler:     (*App).aggregate,
+}
+
 var getCmd = &Command{
 	Name:        "get",
 	Summary:     "fetch one record",
@@ -101,6 +112,24 @@ func (a *App) query(ctx context.Context, args []string) error {
 		path += "?" + encoded
 	}
 	response, err := a.request(ctx, http.MethodGet, path, nil, token)
+	if err != nil {
+		return err
+	}
+	return a.writeResponse(response)
+}
+
+func (a *App) aggregate(ctx context.Context, args []string) error {
+	if len(args) != 2 {
+		return errors.New("usage: aggregate ENTITY JSON_OPERATIONS")
+	}
+	var payload []any
+	if err := json.Unmarshal([]byte(args[1]), &payload); err != nil {
+		return fmt.Errorf("decode aggregate operations: %w", err)
+	}
+	if payload == nil {
+		return errors.New("aggregate operations must be a JSON array")
+	}
+	response, err := a.dataRequest(ctx, http.MethodPut, "/data/"+url.PathEscape(args[0])+"/aggregate", payload)
 	if err != nil {
 		return err
 	}

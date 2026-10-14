@@ -37,6 +37,15 @@ var tokenCmd = &Command{
 	Handler:     (*App).printToken,
 }
 
+var whoamiCmd = &Command{
+	Name:        "whoami",
+	Summary:     "show the currently authenticated user",
+	Description: "Fetches the current user associated with the saved app/environment token.",
+	Examples:    []string{"whoami"},
+	Endpoints:   []string{"GET /users/current"},
+	Handler:     (*App).whoami,
+}
+
 func (a *App) login(ctx context.Context, args []string) error {
 	if err := a.requireConfig("app", "env", "email"); err != nil {
 		return err
@@ -107,4 +116,19 @@ func (a *App) printToken(_ context.Context, args []string) error {
 	}
 	_, err = fmt.Fprintln(a.output, token)
 	return err
+}
+
+func (a *App) whoami(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return errors.New("usage: whoami")
+	}
+	token, err := a.requiredToken()
+	if err != nil {
+		return err
+	}
+	response, err := a.requestWithOptions(ctx, http.MethodGet, "/users/current", nil, nil, "application/json", "application/json", token)
+	if err != nil {
+		return err
+	}
+	return a.writeResponse(response)
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/espinosajuanma/slingr/internal/api"
@@ -13,13 +14,20 @@ func (a *App) saveConfig() error {
 }
 
 func (a *App) request(ctx context.Context, method, path string, payload any, token string) ([]byte, error) {
+	return a.requestWithOptions(ctx, method, path, payload, nil, "", "", token)
+}
+
+func (a *App) requestWithOptions(ctx context.Context, method, path string, payload any, body io.Reader, contentType, accept, token string) ([]byte, error) {
 	return a.api.Do(ctx, api.Request{
-		App:     a.config["app"],
-		Env:     a.config["env"],
-		Method:  method,
-		Path:    path,
-		Payload: payload,
-		Token:   token,
+		App:         a.config["app"],
+		Env:         a.config["env"],
+		Method:      method,
+		Path:        path,
+		Payload:     payload,
+		Body:        body,
+		ContentType: contentType,
+		Accept:      accept,
+		Token:       token,
 	})
 }
 

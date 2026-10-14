@@ -24,6 +24,8 @@ type PasswordPrompt func(io.Reader, io.Writer) (string, error)
 
 type Options struct {
 	Name            string
+	Version         string
+	ConfigPath      string
 	Store           ConfigStore
 	API             API
 	Input           io.Reader
@@ -36,6 +38,8 @@ type Options struct {
 
 type App struct {
 	name            string
+	version         string
+	configPath      string
 	store           ConfigStore
 	api             API
 	input           io.Reader
@@ -70,6 +74,8 @@ func New(options Options) (*App, error) {
 	}
 	return &App{
 		name:            options.Name,
+		version:         options.Version,
+		configPath:      options.ConfigPath,
 		store:           options.Store,
 		api:             options.API,
 		input:           options.Input,
@@ -82,9 +88,15 @@ func New(options Options) (*App, error) {
 		commands: cloneCommands([]*Command{
 			configCmd,
 			currentCmd,
+			versionCmd,
+			pathCmd,
 			helpCmd,
 			loginCmd,
+			whoamiCmd,
 			queryCmd,
+			aggregateCmd,
+			uploadCmd,
+			downloadCmd,
 			getCmd,
 			newCmd,
 			removeCmd,
@@ -110,10 +122,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return nil
 	}
 	if len(args) == 0 {
-		if !a.configurationComplete() {
-			return a.setupWizard()
-		}
-		return a.usage()
+		return a.writeHelpIndex()
 	}
 	command, commandArgs, path, ok := resolveCommand(a.commands, args)
 	if !ok {
@@ -137,7 +146,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 
 func isConfigurationCommand(name string) bool {
 	switch name {
-	case "config", "help":
+	case "config", "help", "version", "path":
 		return true
 	default:
 		return false

@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -109,6 +111,23 @@ func TestCurrentPrintsConfiguredAppEnvironment(t *testing.T) {
 	}
 }
 
+func TestVersionPathAndNoCommandHelp(t *testing.T) {
+	application, output := newTestApp(t, &memoryStore{values: map[string]string{}}, api.NewClient(nil, ""), "")
+	application.version = "1.2.3"
+	application.configPath = "/tmp/solutions/config.json"
+	for _, args := range [][]string{{"version"}, {"path"}} {
+		if err := application.Run(context.Background(), args); err != nil {
+			t.Fatalf("run %v: %v", args, err)
+		}
+	}
+	if err := application.Run(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "1.2.3\n/tmp/solutions/config.json\n"; !strings.HasPrefix(got, want) || !strings.Contains(got, "COMMANDS") {
+		t.Fatalf("system command and help output = %q", got)
+	}
+}
+
 func TestSetupWizardRetainsExistingValuesWhenInputIsEmpty(t *testing.T) {
 	store := &memoryStore{values: map[string]string{
 		"app": "existing-app", "env": "staging",
@@ -120,7 +139,7 @@ func TestSetupWizardRetainsExistingValuesWhenInputIsEmpty(t *testing.T) {
 		"",
 		strings.NewReader("\n\nada@example.com\n"),
 	)
-	if err := application.Run(context.Background(), nil); err != nil {
+	if err := application.Run(context.Background(), []string{"current"}); err != nil {
 		t.Fatal(err)
 	}
 	if store.values["app"] != "existing-app" || store.values["env"] != "staging" {
@@ -137,7 +156,7 @@ func TestSetupWizardRetainsExistingValuesWhenInputIsEmpty(t *testing.T) {
 	}
 }
 
-func TestConfiguredNoArgsShowsUsage(t *testing.T) {
+func TestConfiguredNoArgsShowsHelp(t *testing.T) {
 	store := &memoryStore{values: map[string]string{
 		"app": "existing-app", "env": "staging", "email": "ada@example.com",
 	}}
@@ -145,8 +164,8 @@ func TestConfiguredNoArgsShowsUsage(t *testing.T) {
 	if err := application.Run(context.Background(), nil); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(output.String(), "Usage: solutions {") {
-		t.Fatalf("usage output = %q", output.String())
+	if !strings.Contains(output.String(), "Slingr CLI manual") || !strings.Contains(output.String(), "COMMANDS") {
+		t.Fatalf("help output = %q", output.String())
 	}
 }
 
@@ -252,6 +271,86 @@ func TestDataCommandsAndDynamicActions(t *testing.T) {
 	}
 	if editPayload["country"] != "Argentina" || editPayload["active"] != true {
 		t.Fatalf("edit did not preserve existing fields: %#v", editPayload)
+	}
+}
+
+func TestWhoamiAggregateAndFileTransfers(t *testing.T) {
+	fileContents := []byte{0, 1, 2, 255, 's', 'l', 'i', 'n', 'g', 'r'}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("token") != "test-token" {
+			t.Errorf("token header = %q", r.Header.Get("token"))
+		}
+		switch r.Method + " " + r.URL.Path {
+		case "GET /runtime/api/users/current":
+			if r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("whoami content type = %q", r.Header.Get("Content-Type"))
+			}
+			io.WriteString(w, `{"id":"u1","email":"ada@example.com"}`)
+		case "PUT /runtime/api/data/contacts/aggregate":
+			var payload []any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Error(err)
+			}
+			if len(payload) != 2 || payload[0].(map[string]any)["match"].(map[string]any)["active"] != true || payload[1].(map[string]any)["count"] != "total" {
+				t.Errorf("aggregate payload = %#v", payload)
+			}
+			io.WriteString(w, `[{"total":5}]`)
+		case "POST /runtime/api/files":
+			if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data; boundary=") {
+				t.Errorf("upload content type = %q", r.Header.Get("Content-Type"))
+			}
+			file, _, err := r.FormFile("file")
+			if err != nil {
+				t.Errorf("read multipart file: %v", err)
+				return
+			}
+			defer file.Close()
+			got, err := io.ReadAll(file)
+			if err != nil || string(got) != string(fileContents) {
+				t.Errorf("uploaded bytes = %v, err = %v", got, err)
+			}
+			io.WriteString(w, `{"fileId":"f1","fileLink":"/files/f1"}`)
+		case "GET /runtime/api/files/f1":
+			if r.Header.Get("Accept") != "*/*" {
+				t.Errorf("download accept = %q", r.Header.Get("Accept"))
+			}
+			_, _ = w.Write(fileContents)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.String())
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	store := &memoryStore{values: map[string]string{
+		"app": "example", "env": "dev", "email": "ada@example.com", "example.dev.token": "test-token",
+	}}
+	application, output := newTestApp(t, store, api.NewClient(server.Client(), server.URL+"/runtime/api"), "")
+	sourcePath := filepath.Join(t.TempDir(), "upload.dat")
+	if err := os.WriteFile(sourcePath, fileContents, 0600); err != nil {
+		t.Fatal(err)
+	}
+	downloadPath := filepath.Join(t.TempDir(), "download.dat")
+	commands := [][]string{
+		{"whoami"},
+		{"aggregate", "contacts", `[{"match":{"active":true}},{"count":"total"}]`},
+		{"upload", sourcePath},
+		{"download", "f1", downloadPath},
+	}
+	for _, args := range commands {
+		if err := application.Run(context.Background(), args); err != nil {
+			t.Fatalf("run %v: %v", args, err)
+		}
+	}
+	downloaded, err := os.ReadFile(downloadPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(downloaded) != string(fileContents) {
+		t.Fatalf("downloaded bytes = %v", downloaded)
+	}
+	if !strings.Contains(output.String(), `"email": "ada@example.com"`) || !strings.Contains(output.String(), `"fileId": "f1"`) {
+		t.Fatalf("JSON command output = %q", output.String())
 	}
 }
 

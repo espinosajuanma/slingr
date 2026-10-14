@@ -4,16 +4,15 @@ A Go command-line client for Slingr runtime APIs. The invoked executable name
 selects an independent configuration, so one installed binary can be used for
 multiple apps through symlinks such as `solutions` and `hq`.
 
-## Build and install
+## Install
 
 Requires Go 1.26 or newer.
 
 ```sh
-mkdir -p dist "$HOME/.local/bin"
-go build -o dist/slingr-go ./cmd/slingr
-install -m 0755 dist/slingr-go "$HOME/.local/bin/slingr-go"
-ln -sfn "$HOME/.local/bin/slingr-go" "$HOME/.local/bin/solutions"
-ln -sfn "$HOME/.local/bin/slingr-go" "$HOME/.local/bin/hq"
+mkdir -p "$HOME/.local/bin"
+GOBIN="$HOME/.local/bin" go install github.com/espinosajuanma/slingr/cmd/slingr@latest
+ln -sfn "$HOME/.local/bin/slingr" "$HOME/.local/bin/solutions"
+ln -sfn "$HOME/.local/bin/slingr" "$HOME/.local/bin/hq"
 ```
 
 Make sure `$HOME/.local/bin` is on your `PATH` (for example, add
@@ -34,8 +33,8 @@ settings and login token.
 
 ## Configuration
 
-On first run, invoking the CLI with no command (or invoking a command while
-app, environment, or email is missing) starts a setup wizard. Existing values
+Running the CLI with no command displays help. A command that needs app settings
+starts a setup wizard if app, environment, or email is missing. Existing values
 are shown as defaults; pressing Enter keeps the current value.
 
 Set the app, environment, and email for each alias:
@@ -58,10 +57,20 @@ used for configuration.
 - `help [COMMAND [SUBCOMMAND...]]` — display the command index or a man-page-style page.
 - `config [KEY [VALUE...]]` — list, read, or set configuration.
 - `current` — print the configured app and environment, such as `solutions-dev`.
+- `version` — display the CLI version.
+- `path` — display the configuration file path.
 - `app`, `env`, `email` — aliases for reading or setting those config keys.
 - `login [PASSWORD]` — log in; prompts without echo when the password is
   omitted.
+- `whoami` — fetch the currently authenticated user.
 - `query` / `q ENTITY [--field VALUE ...]` — query records.
+- `aggregate ENTITY JSON_OPERATIONS` — run an aggregate query using an ordered
+  JSON array of operations such as `match`, `group`, and `count`.
+- `upload FILE_PATH` — upload a local file and print its metadata, including
+  `fileId`.
+- `download FILE_ID OUTPUT_PATH` — download a file; use `-` as the output path
+  to write the file bytes to standard output. Record files can be downloaded
+  with `download ENTITY RECORD_ID FILE_ID OUTPUT_PATH`.
 - `get ENTITY RECORD_ID` — fetch a record.
 - `new` / `add ENTITY [--field VALUE ...]` — create a record.
 - `remove` / `rm ENTITY RECORD_ID` — delete a record.
@@ -92,6 +101,16 @@ solutions action holidays approve d987485b-488e-43c9-b5d4-77ba5dd6950b --approve
 The first action form calls the entity action; supplying a record ID calls the
 action for that record. API requests use the configured app's runtime API at
 `https://<app>.slingrs.io/<env>/runtime/api`.
+
+Aggregate query bodies are ordered arrays of operations, as described by
+Slingr's [aggregate query API](https://platform-docs.slingr.io/dev-reference/rest-apis/apps-api/#aggregate-queries):
+
+```sh
+solutions aggregate contacts '[{"project":"company,numberOfSkills"},{"group":{"by":"company","totalSkills":"sum(numberOfSkills)"}}]'
+```
+
+Files are uploaded through `POST /files` and downloaded through `GET /files/{id}`
+or the record-files endpoint. See the [files handling reference](https://platform-docs.slingr.io/dev-reference/rest-apis/apps-api/#files-handling).
 
 ## Bash completion
 

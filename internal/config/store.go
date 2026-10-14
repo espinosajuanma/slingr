@@ -17,6 +17,10 @@ func NewFileStore(path string) *FileStore {
 	return &FileStore{path: path}
 }
 
+func (s *FileStore) Path() string {
+	return s.path
+}
+
 func PathFor(name, home, xdgConfigHome, configDir string) string {
 	if configDir != "" {
 		return filepath.Join(configDir, "config.json")

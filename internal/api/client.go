@@ -17,12 +17,15 @@ type Client struct {
 }
 
 type Request struct {
-	App     string
-	Env     string
-	Method  string
-	Path    string
-	Payload any
-	Token   string
+	App         string
+	Env         string
+	Method      string
+	Path        string
+	Payload     any
+	Body        io.Reader
+	ContentType string
+	Accept      string
+	Token       string
 }
 
 func NewClient(httpClient *http.Client, baseURLOverride string) *Client {
@@ -50,7 +53,9 @@ func (c *Client) Do(ctx context.Context, request Request) ([]byte, error) {
 		return nil, err
 	}
 	var body io.Reader
-	if request.Payload != nil {
+	if request.Body != nil {
+		body = request.Body
+	} else if request.Payload != nil {
 		encoded, err := json.Marshal(request.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("encode request payload: %w", err)
@@ -61,9 +66,17 @@ func (c *Client) Do(ctx context.Context, request Request) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Accept", "application/json")
-	if request.Payload != nil {
-		req.Header.Set("Content-Type", "application/json")
+	accept := request.Accept
+	if accept == "" {
+		accept = "application/json"
+	}
+	req.Header.Set("Accept", accept)
+	contentType := request.ContentType
+	if contentType == "" && request.Payload != nil {
+		contentType = "application/json"
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	if request.Token != "" {
 		req.Header.Set("token", request.Token)
