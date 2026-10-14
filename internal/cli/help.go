@@ -22,11 +22,11 @@ func (a *App) help(_ context.Context, args []string) error {
 	if len(args) == 0 {
 		return a.writeHelpIndex()
 	}
-	command, ok := findCommandPath(a.commands, args)
+	command, path, ok := findCommandPath(a.commands, args)
 	if !ok {
 		return fmt.Errorf("no help available for %q; run '%s help' to list commands", strings.Join(args, " "), a.name)
 	}
-	return a.writeManual(command, strings.Join(args, " "))
+	return a.writeManual(command, strings.Join(path, " "))
 }
 
 func (a *App) writeHelpIndex() error {
@@ -43,7 +43,15 @@ func (a *App) writeHelpIndex() error {
 		return err
 	}
 	for _, command := range a.commands {
-		if _, err := fmt.Fprintf(a.output, "  %-8s %s\n", command.Name, command.Summary); err != nil {
+		name := command.Name
+		if len(command.Aliases) > 0 {
+			aliases := make([]string, 0, len(command.Aliases))
+			for _, alias := range command.Aliases {
+				aliases = append(aliases, alias.Name)
+			}
+			name += " (" + strings.Join(aliases, ", ") + ")"
+		}
+		if _, err := fmt.Fprintf(a.output, "  %-18s %s\n", name, command.Summary); err != nil {
 			return err
 		}
 	}
@@ -80,6 +88,19 @@ func (a *App) writeManual(command *Command, path string) error {
 	}
 	if err := writeManualSection(a.output, "ARGUMENTS", command.Arguments, a.color); err != nil {
 		return err
+	}
+	if len(command.Aliases) > 0 {
+		aliases := make([]string, 0, len(command.Aliases))
+		for _, alias := range command.Aliases {
+			target := command.Name
+			if len(alias.PrefixArgs) > 0 {
+				target += " " + strings.Join(alias.PrefixArgs, " ")
+			}
+			aliases = append(aliases, alias.Name+" -> "+target)
+		}
+		if err := writeManualSection(a.output, "ALIASES", aliases, a.color); err != nil {
+			return err
+		}
 	}
 	if len(command.Children) > 0 {
 		if _, err := fmt.Fprint(a.output, "\n"); err != nil {

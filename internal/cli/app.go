@@ -81,6 +81,7 @@ func New(options Options) (*App, error) {
 		color:           colorOutputEnabled(options.Output),
 		commands: cloneCommands([]*Command{
 			configCmd,
+			currentCmd,
 			helpCmd,
 			loginCmd,
 			queryCmd,
@@ -126,7 +127,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		}
 		return fmt.Errorf("usage: %s %s {%s}", a.name, strings.Join(path, " "), strings.Join(names, "|"))
 	}
-	if path[0] != "config" && path[0] != "help" && !a.configurationComplete() {
+	if !isConfigurationCommand(path[0]) && !a.configurationComplete() {
 		if err := a.setupWizard(); err != nil {
 			return err
 		}
@@ -134,11 +135,17 @@ func (a *App) Run(ctx context.Context, args []string) error {
 	return command.Handler(a, ctx, commandArgs)
 }
 
-func (a *App) usageText() string {
-	names := make([]string, 0, len(a.commands))
-	for _, command := range a.commands {
-		names = append(names, command.Name)
+func isConfigurationCommand(name string) bool {
+	switch name {
+	case "config", "help":
+		return true
+	default:
+		return false
 	}
+}
+
+func (a *App) usageText() string {
+	names := commandNames(a.commands)
 	return fmt.Sprintf("Usage: %s {%s}", a.name, strings.Join(names, "|"))
 }
 
@@ -169,7 +176,7 @@ func (a *App) complete() {
 			available = a.commands
 			current = nil
 		}
-		child, ok := findCommand(available, word)
+		child, _, ok := findCommand(available, word)
 		if !ok {
 			return
 		}
@@ -181,9 +188,9 @@ func (a *App) complete() {
 	if current != nil && current.Name == "help" {
 		available = a.commands
 	}
-	for _, command := range available {
-		if strings.HasPrefix(command.Name, prefix) {
-			fmt.Fprintln(a.output, command.Name)
+	for _, name := range commandNames(available) {
+		if strings.HasPrefix(name, prefix) {
+			fmt.Fprintln(a.output, name)
 		}
 	}
 }

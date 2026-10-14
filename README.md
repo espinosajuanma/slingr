@@ -57,12 +57,14 @@ used for configuration.
 
 - `help [COMMAND [SUBCOMMAND...]]` — display the command index or a man-page-style page.
 - `config [KEY [VALUE...]]` — list, read, or set configuration.
+- `current` — print the configured app and environment, such as `solutions-dev`.
+- `app`, `env`, `email` — aliases for reading or setting those config keys.
 - `login [PASSWORD]` — log in; prompts without echo when the password is
   omitted.
-- `query ENTITY [--field VALUE ...]` — query records.
+- `query` / `q ENTITY [--field VALUE ...]` — query records.
 - `get ENTITY RECORD_ID` — fetch a record.
-- `new ENTITY [--field VALUE ...]` — create a record.
-- `remove ENTITY RECORD_ID` — delete a record.
+- `new` / `add ENTITY [--field VALUE ...]` — create a record.
+- `remove` / `rm ENTITY RECORD_ID` — delete a record.
 - `edit ENTITY RECORD_ID [--field VALUE ...]` — fetch, merge changes, and
   update a record.
 - `action ENTITY ACTION_NAME [RECORD_ID] [--field VALUE ...]` — run an entity

@@ -31,7 +31,7 @@ func TestResolveCommandSupportsNestedDispatch(t *testing.T) {
 	if !ok || groupCommand != group || len(groupArgs) != 0 || strings.Join(groupPath, " ") != "workspace" {
 		t.Fatalf("resolving group returned %#v, %#v, %#v, %v", groupCommand, groupArgs, groupPath, ok)
 	}
-	if found, ok := findCommandPath(commands, []string{"workspace", "show"}); !ok || found != leaf {
+	if found, path, ok := findCommandPath(commands, []string{"workspace", "show"}); !ok || found != leaf || strings.Join(path, " ") != "workspace show" {
 		t.Fatalf("nested command lookup = %#v, %v", found, ok)
 	}
 }
@@ -56,10 +56,54 @@ func TestRegisteredCommandsContainMetadataAndHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	seenNames := make(map[string]bool)
+	for _, name := range commandNames(application.commands) {
+		if seenNames[name] {
+			t.Errorf("command name or alias %q is registered more than once", name)
+		}
+		seenNames[name] = true
+	}
 	for _, command := range application.commands {
 		if command.Summary == "" || command.Description == "" || command.Handler == nil {
 			t.Errorf("command %q is missing summary, description, or handler", command.Name)
 		}
+	}
+}
+
+func TestAliasesResolveToCanonicalCommands(t *testing.T) {
+	application, err := New(Options{
+		Name:  "solutions",
+		Store: &memoryStore{values: map[string]string{}},
+		API:   api.NewClient(nil, ""),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range []struct {
+		alias      string
+		canonical  string
+		prefixArgs []string
+	}{
+		{alias: "app", canonical: "config", prefixArgs: []string{"app"}},
+		{alias: "env", canonical: "config", prefixArgs: []string{"env"}},
+		{alias: "email", canonical: "config", prefixArgs: []string{"email"}},
+		{alias: "q", canonical: "query"},
+		{alias: "rm", canonical: "remove"},
+		{alias: "add", canonical: "new"},
+	} {
+		command, alias, ok := findCommand(application.commands, test.alias)
+		if !ok || command.Name != test.canonical || alias == nil {
+			t.Fatalf("alias %q resolved to %#v, %v", test.alias, command, ok)
+		}
+		if strings.Join(alias.PrefixArgs, " ") != strings.Join(test.prefixArgs, " ") {
+			t.Errorf("alias %q args prefix = %#v, want %#v", test.alias, alias.PrefixArgs, test.prefixArgs)
+		}
+	}
+
+	command, args, path, ok := resolveCommand(application.commands, []string{"app", "my-app"})
+	if !ok || command.Name != "config" || strings.Join(args, " ") != "app my-app" || strings.Join(path, " ") != "config" {
+		t.Fatalf("app alias dispatch = %#v, %#v, %#v, %v", command, args, path, ok)
 	}
 }
 

@@ -19,6 +19,7 @@ var queryCmd = &Command{
 	Arguments:   []string{"ENTITY: entity name.", "--field VALUE: zero or more query criteria."},
 	Examples:    []string{"query holidays --country Argentina", "query orders --status active --amount 12"},
 	Endpoints:   []string{"GET /data/{entityName}?{key}={value}"},
+	Aliases:     []CommandAlias{{Name: "q"}},
 	Handler:     (*App).query,
 }
 
@@ -41,6 +42,7 @@ var newCmd = &Command{
 	Arguments:   []string{"ENTITY: entity name.", "--field VALUE: zero or more record fields."},
 	Examples:    []string{"new holidays --country Argentina --daySettings.date 2026-10-14", `new orders --items '[{"sku":"A1","quantity":2}]'`},
 	Endpoints:   []string{"POST /data/{entityName}"},
+	Aliases:     []CommandAlias{{Name: "add"}},
 	Handler:     (*App).create,
 }
 
@@ -52,6 +54,7 @@ var removeCmd = &Command{
 	Arguments:   []string{"ENTITY: entity name.", "RECORD_ID: record identifier."},
 	Examples:    []string{"remove holidays d987485b-488e-43c9-b5d4-77ba5dd6950b"},
 	Endpoints:   []string{"DELETE /data/{entityName}/{recordId}"},
+	Aliases:     []CommandAlias{{Name: "rm"}},
 	Handler:     (*App).remove,
 }
 

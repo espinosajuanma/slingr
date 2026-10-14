@@ -72,6 +72,43 @@ func TestConfigCommandIsGenericAndPersistsValues(t *testing.T) {
 	}
 }
 
+func TestAppEnvEmailAliasesReadAndWriteConfig(t *testing.T) {
+	store := &memoryStore{values: map[string]string{"app": "solutions"}}
+	application, output := newTestApp(t, store, api.NewClient(nil, ""), "")
+	commands := [][]string{
+		{"env", "prod"},
+		{"email", "juan@example.com"},
+		{"app"},
+		{"env"},
+		{"email"},
+		{"app", "my solutions"},
+	}
+	for _, args := range commands {
+		if err := application.Run(context.Background(), args); err != nil {
+			t.Fatalf("run %v: %v", args, err)
+		}
+	}
+	if store.values["app"] != "my solutions" || store.values["env"] != "prod" || store.values["email"] != "juan@example.com" {
+		t.Fatalf("config aliases stored unexpected settings: %#v", store.values)
+	}
+	if got, want := output.String(), "solutions\nprod\njuan@example.com\n"; got != want {
+		t.Fatalf("config alias read output = %q, want %q", got, want)
+	}
+}
+
+func TestCurrentPrintsConfiguredAppEnvironment(t *testing.T) {
+	store := &memoryStore{values: map[string]string{
+		"app": "solutions", "env": "prod", "email": "juan@example.com",
+	}}
+	application, output := newTestApp(t, store, api.NewClient(nil, ""), "")
+	if err := application.Run(context.Background(), []string{"current"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "solutions-prod\n"; got != want {
+		t.Fatalf("current output = %q, want %q", got, want)
+	}
+}
+
 func TestSetupWizardRetainsExistingValuesWhenInputIsEmpty(t *testing.T) {
 	store := &memoryStore{values: map[string]string{
 		"app": "existing-app", "env": "staging",
@@ -194,10 +231,13 @@ func TestDataCommandsAndDynamicActions(t *testing.T) {
 	application, _ := newTestApp(t, store, client, "")
 	commands := [][]string{
 		{"query", "holidays", "--country", "Argentina", "--active", "true", "--daySettings.date", "2026-10-14"},
+		{"q", "holidays", "--country", "Argentina", "--active", "true", "--daySettings.date", "2026-10-14"},
 		{"new", "holidays", "--enabled", "true", "--count", "3"},
+		{"add", "holidays", "--enabled", "true", "--count", "3"},
 		{"get", "holidays", "r1"},
 		{"edit", "holidays", "r1", "--daySettings.date", "new-date"},
 		{"remove", "holidays", "r1"},
+		{"rm", "holidays", "r1"},
 		{"action", "holidays", "approve", "--country", "USA"},
 		{"action", "holidays", "approve", "r1", "--country", "USA"},
 	}
@@ -274,7 +314,7 @@ func TestHelpIndexAndManualPages(t *testing.T) {
 	if err := application.Run(context.Background(), []string{"help"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "COMMANDS") || !strings.Contains(output.String(), "help     show the CLI manual") {
+	if !strings.Contains(output.String(), "COMMANDS") || !strings.Contains(output.String(), "show the CLI manual or a command's manual page") {
 		t.Fatalf("unexpected help index: %q", output.String())
 	}
 
@@ -290,6 +330,22 @@ func TestHelpIndexAndManualPages(t *testing.T) {
 	}
 	if !strings.Contains(manual, "ACTION_NAME") || !strings.Contains(manual, "/data/{entityName}/{recordId}/{actionName}") {
 		t.Errorf("action manual missing required action details: %q", manual)
+	}
+
+	output.Reset()
+	if err := application.Run(context.Background(), []string{"help", "app"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "NAME\n  solutions config -") || !strings.Contains(output.String(), "app -> config app") {
+		t.Errorf("config alias help did not resolve to its command: %q", output.String())
+	}
+
+	output.Reset()
+	if err := application.Run(context.Background(), []string{"help", "q"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "NAME\n  solutions query -") || !strings.Contains(output.String(), "q -> query") {
+		t.Errorf("query alias help did not resolve to its command: %q", output.String())
 	}
 
 	for _, command := range application.commands {
