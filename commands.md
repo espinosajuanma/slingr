@@ -20,6 +20,16 @@ slingr config KEY VALUE
 Lists all configured values, prints one value, or sets a value. Arbitrary keys
 are supported. Use `app`, `env`, and `email` to configure a Slingr app.
 
+## help
+
+```sh
+slingr help
+slingr help COMMAND
+```
+
+Prints the command index or a man-page-style page with a command's synopsis,
+description, arguments, examples, and API endpoints.
+
 ## login
 
 ```sh

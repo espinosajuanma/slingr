@@ -267,3 +267,47 @@ func TestBashCompletion(t *testing.T) {
 		t.Fatalf("completion = %q, want %q", got, want)
 	}
 }
+
+func TestHelpIndexAndManualPages(t *testing.T) {
+	store := &memoryStore{values: map[string]string{}}
+	application, output := newTestApp(t, store, api.NewClient(nil, ""), "")
+	if err := application.Run(context.Background(), []string{"help"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "COMMANDS") || !strings.Contains(output.String(), "help     show the CLI manual") {
+		t.Fatalf("unexpected help index: %q", output.String())
+	}
+
+	output.Reset()
+	if err := application.Run(context.Background(), []string{"help", "action"}); err != nil {
+		t.Fatal(err)
+	}
+	manual := output.String()
+	for _, section := range []string{"NAME", "SYNOPSIS", "DESCRIPTION", "ARGUMENTS", "EXAMPLES", "API"} {
+		if !strings.Contains(manual, section) {
+			t.Errorf("action manual missing %s section: %q", section, manual)
+		}
+	}
+	if !strings.Contains(manual, "ACTION_NAME") || !strings.Contains(manual, "/data/{entityName}/{recordId}/{actionName}") {
+		t.Errorf("action manual missing required action details: %q", manual)
+	}
+
+	for _, command := range commandNames {
+		output.Reset()
+		if err := application.Run(context.Background(), []string{"help", command}); err != nil {
+			t.Errorf("help %s: %v", command, err)
+			continue
+		}
+		if !strings.Contains(output.String(), "SYNOPSIS") {
+			t.Errorf("help %s did not render a manual page: %q", command, output.String())
+		}
+	}
+}
+
+func TestHelpUnknownCommandIsActionable(t *testing.T) {
+	application, _ := newTestApp(t, &memoryStore{values: map[string]string{}}, api.NewClient(nil, ""), "")
+	err := application.Run(context.Background(), []string{"help", "missing"})
+	if err == nil || !strings.Contains(err.Error(), "solutions help") {
+		t.Fatalf("help error = %v, expected command index hint", err)
+	}
+}

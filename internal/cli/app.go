@@ -47,7 +47,7 @@ type App struct {
 	config          map[string]string
 }
 
-var commandNames = []string{"config", "login", "query", "get", "new", "remove", "edit", "action", "logout", "token"}
+var commandNames = []string{"config", "help", "login", "query", "get", "new", "remove", "edit", "action", "logout", "token"}
 
 type commandHandler func(context.Context, []string) error
 
@@ -105,6 +105,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 	command, args := args[0], args[1:]
 	handlers := map[string]commandHandler{
 		"config": a.configCommand,
+		"help":   a.help,
 		"login":  a.login,
 		"query":  a.query,
 		"get":    a.get,
@@ -119,7 +120,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 	if !ok {
 		return fmt.Errorf("unknown command %q\n%s", command, a.usageText())
 	}
-	if command != "config" && !a.configurationComplete() {
+	if command != "config" && command != "help" && !a.configurationComplete() {
 		if err := a.setupWizard(); err != nil {
 			return err
 		}

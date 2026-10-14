@@ -54,6 +54,7 @@ used for configuration.
 
 ## Commands
 
+- `help [COMMAND]` — display the command index or a man-page-style page.
 - `config [KEY [VALUE...]]` — list, read, or set configuration.
 - `login [PASSWORD]` — log in; prompts without echo when the password is
   omitted.
@@ -73,6 +74,9 @@ Nested fields use dotted names, for example
 JSON, supporting strings, numbers, booleans, null, arrays, and objects. Other
 values are kept as plain text. To explicitly pass a JSON string, include its
 JSON quotes, e.g. `--status='"ready"'`.
+
+Use `solutions help` for the command index or `solutions help edit` for the
+full manual page for a command.
 
 ```sh
 solutions query holidays --country Argentina
