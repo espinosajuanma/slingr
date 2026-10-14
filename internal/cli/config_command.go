@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+var configCmd = &Command{
+	Name:        "config",
+	Summary:     "read or update per-alias configuration",
+	Synopsis:    "[KEY [VALUE...]]",
+	Description: "With no arguments, lists all settings. With KEY, prints its value. With KEY and VALUE, stores the value; multiple value arguments are joined with spaces. Keys are arbitrary strings. Use app, env, and email to configure an application.",
+	Arguments:   []string{"KEY: setting name to read or write.", "VALUE: setting value; any remaining arguments are joined with spaces."},
+	Examples:    []string{"config", "config app", "config app my-solutions-app", "config env staging", "config email juan@example.com"},
+	Handler:     (*App).configCommand,
+}
+
 func (a *App) configCommand(_ context.Context, args []string) error {
 	switch len(args) {
 	case 0:

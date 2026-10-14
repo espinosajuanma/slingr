@@ -45,11 +45,8 @@ type App struct {
 	completionLine  string
 	completionPoint int
 	config          map[string]string
+	commands        []*Command
 }
-
-var commandNames = []string{"config", "help", "login", "query", "get", "new", "remove", "edit", "action", "logout", "token"}
-
-type commandHandler func(context.Context, []string) error
 
 func New(options Options) (*App, error) {
 	if options.Name == "" {
@@ -80,6 +77,19 @@ func New(options Options) (*App, error) {
 		passwordPrompt:  options.PasswordPrompt,
 		completionLine:  options.CompletionLine,
 		completionPoint: options.CompletionPoint,
+		commands: cloneCommands([]*Command{
+			configCmd,
+			helpCmd,
+			loginCmd,
+			queryCmd,
+			getCmd,
+			newCmd,
+			removeCmd,
+			editCmd,
+			actionCmd,
+			logoutCmd,
+			tokenCmd,
+		}),
 	}, nil
 }
 
@@ -102,34 +112,32 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		}
 		return a.usage()
 	}
-	command, args := args[0], args[1:]
-	handlers := map[string]commandHandler{
-		"config": a.configCommand,
-		"help":   a.help,
-		"login":  a.login,
-		"query":  a.query,
-		"get":    a.get,
-		"new":    a.create,
-		"remove": a.remove,
-		"edit":   a.edit,
-		"action": a.action,
-		"logout": a.logout,
-		"token":  a.printToken,
-	}
-	handler, ok := handlers[command]
+	command, commandArgs, path, ok := resolveCommand(a.commands, args)
 	if !ok {
-		return fmt.Errorf("unknown command %q\n%s", command, a.usageText())
+		return fmt.Errorf("unknown command %q\n%s", args[0], a.usageText())
 	}
-	if command != "config" && command != "help" && !a.configurationComplete() {
+	if command.Handler == nil {
+		children := command.Children
+		names := make([]string, 0, len(children))
+		for _, child := range children {
+			names = append(names, child.Name)
+		}
+		return fmt.Errorf("usage: %s %s {%s}", a.name, strings.Join(path, " "), strings.Join(names, "|"))
+	}
+	if path[0] != "config" && path[0] != "help" && !a.configurationComplete() {
 		if err := a.setupWizard(); err != nil {
 			return err
 		}
 	}
-	return handler(ctx, args)
+	return command.Handler(a, ctx, commandArgs)
 }
 
 func (a *App) usageText() string {
-	return fmt.Sprintf("Usage: %s {%s}", a.name, strings.Join(commandNames, "|"))
+	names := make([]string, 0, len(a.commands))
+	for _, command := range a.commands {
+		names = append(names, command.Name)
+	}
+	return fmt.Sprintf("Usage: %s {%s}", a.name, strings.Join(names, "|"))
 }
 
 func (a *App) usage() error {
@@ -142,17 +150,38 @@ func (a *App) complete() {
 	if a.completionPoint > 0 && a.completionPoint < len(line) {
 		line = line[:a.completionPoint]
 	}
-	fields := strings.Fields(line)
-	if len(fields) == 0 || len(fields) > 2 || (len(fields) == 2 && strings.HasSuffix(line, " ")) {
+	words := strings.Fields(line)
+	if len(words) == 0 {
 		return
 	}
 	prefix := ""
-	if len(fields) > 1 {
-		prefix = fields[1]
+	commandWords := words[1:]
+	if !strings.HasSuffix(line, " ") && len(commandWords) > 0 {
+		prefix = commandWords[len(commandWords)-1]
+		commandWords = commandWords[:len(commandWords)-1]
 	}
-	for _, command := range commandNames {
-		if strings.HasPrefix(command, prefix) {
-			fmt.Fprintln(a.output, command)
+	available := a.commands
+	var current *Command
+	for _, word := range commandWords {
+		if current != nil && current.Name == "help" {
+			available = a.commands
+			current = nil
+		}
+		child, ok := findCommand(available, word)
+		if !ok {
+			return
+		}
+		current = child
+		available = child.Children
+	}
+	// Help takes a command path as its argument, so its next completion level
+	// mirrors the command tree itself.
+	if current != nil && current.Name == "help" {
+		available = a.commands
+	}
+	for _, command := range available {
+		if strings.HasPrefix(command.Name, prefix) {
+			fmt.Fprintln(a.output, command.Name)
 		}
 	}
 }

@@ -292,14 +292,14 @@ func TestHelpIndexAndManualPages(t *testing.T) {
 		t.Errorf("action manual missing required action details: %q", manual)
 	}
 
-	for _, command := range commandNames {
+	for _, command := range application.commands {
 		output.Reset()
-		if err := application.Run(context.Background(), []string{"help", command}); err != nil {
-			t.Errorf("help %s: %v", command, err)
+		if err := application.Run(context.Background(), []string{"help", command.Name}); err != nil {
+			t.Errorf("help %s: %v", command.Name, err)
 			continue
 		}
 		if !strings.Contains(output.String(), "SYNOPSIS") {
-			t.Errorf("help %s did not render a manual page: %q", command, output.String())
+			t.Errorf("help %s did not render a manual page: %q", command.Name, output.String())
 		}
 	}
 }

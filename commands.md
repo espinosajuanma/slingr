@@ -24,7 +24,7 @@ are supported. Use `app`, `env`, and `email` to configure a Slingr app.
 
 ```sh
 slingr help
-slingr help COMMAND
+slingr help COMMAND [SUBCOMMAND...]
 ```
 
 Prints the command index or a man-page-style page with a command's synopsis,

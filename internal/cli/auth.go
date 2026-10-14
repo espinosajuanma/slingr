@@ -9,6 +9,34 @@ import (
 	"strings"
 )
 
+var loginCmd = &Command{
+	Name:        "login",
+	Summary:     "authenticate and save an app/environment token",
+	Synopsis:    "[PASSWORD]",
+	Description: "Authenticates with the configured email. If PASSWORD is omitted, reads it from the terminal without echo. The token is stored under the current app and environment for this executable alias.",
+	Arguments:   []string{"PASSWORD: optional password; prefer the hidden interactive prompt."},
+	Examples:    []string{"login"},
+	Endpoints:   []string{"POST /auth/login"},
+	Handler:     (*App).login,
+}
+
+var logoutCmd = &Command{
+	Name:        "logout",
+	Summary:     "end the current app/environment session",
+	Description: "Calls the logout endpoint with the saved token and removes the token and associated user name from this alias's configuration.",
+	Examples:    []string{"logout"},
+	Endpoints:   []string{"POST /auth/logout"},
+	Handler:     (*App).logout,
+}
+
+var tokenCmd = &Command{
+	Name:        "token",
+	Summary:     "print the current app/environment token",
+	Description: "Prints the token saved for the configured app and environment for this executable alias.",
+	Examples:    []string{"token"},
+	Handler:     (*App).printToken,
+}
+
 func (a *App) login(ctx context.Context, args []string) error {
 	if err := a.requireConfig("app", "env", "email"); err != nil {
 		return err

@@ -11,6 +11,72 @@ import (
 	"strings"
 )
 
+var queryCmd = &Command{
+	Name:        "query",
+	Summary:     "query records in an entity",
+	Synopsis:    "ENTITY [--field VALUE ...]",
+	Description: "Sends each field/value pair as a query parameter. Dotted field names stay dotted in the query string. Values that are valid JSON use their JSON representation; other values are sent as text.",
+	Arguments:   []string{"ENTITY: entity name.", "--field VALUE: zero or more query criteria."},
+	Examples:    []string{"query holidays --country Argentina", "query orders --status active --amount 12"},
+	Endpoints:   []string{"GET /data/{entityName}?{key}={value}"},
+	Handler:     (*App).query,
+}
+
+var getCmd = &Command{
+	Name:        "get",
+	Summary:     "fetch one record",
+	Synopsis:    "ENTITY RECORD_ID",
+	Description: "Returns the record identified by ENTITY and RECORD_ID.",
+	Arguments:   []string{"ENTITY: entity name.", "RECORD_ID: record identifier."},
+	Examples:    []string{"get holidays d987485b-488e-43c9-b5d4-77ba5dd6950b"},
+	Endpoints:   []string{"GET /data/{entityName}/{recordId}"},
+	Handler:     (*App).get,
+}
+
+var newCmd = &Command{
+	Name:        "new",
+	Summary:     "create a record",
+	Synopsis:    "ENTITY [--field VALUE ...]",
+	Description: "Builds a JSON object from the supplied fields and creates a record. Dotted field names create nested objects. A value that is valid JSON is decoded as JSON (including strings, numbers, booleans, null, arrays, or objects); other values remain text.",
+	Arguments:   []string{"ENTITY: entity name.", "--field VALUE: zero or more record fields."},
+	Examples:    []string{"new holidays --country Argentina --daySettings.date 2026-10-14", `new orders --items '[{"sku":"A1","quantity":2}]'`},
+	Endpoints:   []string{"POST /data/{entityName}"},
+	Handler:     (*App).create,
+}
+
+var removeCmd = &Command{
+	Name:        "remove",
+	Summary:     "delete a record",
+	Synopsis:    "ENTITY RECORD_ID",
+	Description: "Deletes the record identified by ENTITY and RECORD_ID.",
+	Arguments:   []string{"ENTITY: entity name.", "RECORD_ID: record identifier."},
+	Examples:    []string{"remove holidays d987485b-488e-43c9-b5d4-77ba5dd6950b"},
+	Endpoints:   []string{"DELETE /data/{entityName}/{recordId}"},
+	Handler:     (*App).remove,
+}
+
+var editCmd = &Command{
+	Name:        "edit",
+	Summary:     "merge changes into an existing record",
+	Synopsis:    "ENTITY RECORD_ID [--field VALUE ...]",
+	Description: "Fetches the existing record, recursively merges the supplied fields into its JSON object, then sends the updated record. Nested fields use dotted names.",
+	Arguments:   []string{"ENTITY: entity name.", "RECORD_ID: record identifier.", "--field VALUE: one or more values to merge into the record."},
+	Examples:    []string{"edit holidays d987485b-488e-43c9-b5d4-77ba5dd6950b --daySettings.date 2026-10-10"},
+	Endpoints:   []string{"GET /data/{entityName}/{recordId}", "PUT /data/{entityName}/{recordId}"},
+	Handler:     (*App).edit,
+}
+
+var actionCmd = &Command{
+	Name:        "action",
+	Summary:     "run an entity-level or record-level action",
+	Synopsis:    "ENTITY ACTION_NAME [RECORD_ID] [--field VALUE ...]",
+	Description: "ACTION_NAME is required. If RECORD_ID is supplied, runs that action for the record; otherwise, runs the entity-level action. Fields form the JSON request payload.",
+	Arguments:   []string{"ENTITY: entity name.", "ACTION_NAME: action name to invoke.", "RECORD_ID: optional record identifier; omit for an entity-level action.", "--field VALUE: zero or more action payload fields."},
+	Examples:    []string{"action holidays refresh --force true", "action holidays approve d987485b-488e-43c9-b5d4-77ba5dd6950b --country USA"},
+	Endpoints:   []string{"PUT /data/{entityName}/{actionName}", "PUT /data/{entityName}/{recordId}/{actionName}"},
+	Handler:     (*App).action,
+}
+
 func (a *App) query(ctx context.Context, args []string) error {
 	if len(args) < 1 {
 		return errors.New("usage: query ENTITY [--field VALUE ...]")

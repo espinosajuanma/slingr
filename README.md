@@ -24,7 +24,8 @@ settings and login token.
 
 - `cmd/slingr` — executable entry point and dependency wiring.
 - `internal/cli` — command dispatch, validation, and request orchestration;
-  API and configuration persistence are injected through small interfaces.
+  command handlers and manual metadata live together in an extensible command
+  tree. API and configuration persistence are injected through small interfaces.
 - `internal/api` — HTTP transport, Slingr URL construction, and API errors.
 - `internal/config` — JSON configuration storage and alias-specific paths.
 - `internal/terminal` — hidden password input.
@@ -54,7 +55,7 @@ used for configuration.
 
 ## Commands
 
-- `help [COMMAND]` — display the command index or a man-page-style page.
+- `help [COMMAND [SUBCOMMAND...]]` — display the command index or a man-page-style page.
 - `config [KEY [VALUE...]]` — list, read, or set configuration.
 - `login [PASSWORD]` — log in; prompts without echo when the password is
   omitted.
