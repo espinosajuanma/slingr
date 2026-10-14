@@ -9,9 +9,9 @@ multiple apps through symlinks such as `solutions` and `hq`.
 Requires Go 1.26 or newer.
 
 ```sh
-go build -o slingr-go ./cmd/slingr
-mkdir -p "$HOME/.local/bin"
-install -m 0755 slingr-go "$HOME/.local/bin/slingr-go"
+mkdir -p dist "$HOME/.local/bin"
+go build -o dist/slingr-go ./cmd/slingr
+install -m 0755 dist/slingr-go "$HOME/.local/bin/slingr-go"
 ln -sfn "$HOME/.local/bin/slingr-go" "$HOME/.local/bin/solutions"
 ln -sfn "$HOME/.local/bin/slingr-go" "$HOME/.local/bin/hq"
 ```
