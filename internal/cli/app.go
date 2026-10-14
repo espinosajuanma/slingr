@@ -44,6 +44,7 @@ type App struct {
 	passwordPrompt  PasswordPrompt
 	completionLine  string
 	completionPoint int
+	color           bool
 	config          map[string]string
 	commands        []*Command
 }
@@ -77,6 +78,7 @@ func New(options Options) (*App, error) {
 		passwordPrompt:  options.PasswordPrompt,
 		completionLine:  options.CompletionLine,
 		completionPoint: options.CompletionPoint,
+		color:           colorOutputEnabled(options.Output),
 		commands: cloneCommands([]*Command{
 			configCmd,
 			helpCmd,
