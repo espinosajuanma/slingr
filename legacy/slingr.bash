@@ -1,4 +1,5 @@
 #!/bin/bash
+# Legacy Bash CLI retained for reference; the maintained CLI is in cmd/slingr.
 # shellcheck disable=SC2016
 set -e
 # export PATH="/bin:/usr/bin:/usr/local/bin" # safer, if you can
